@@ -6,128 +6,406 @@
                   id="Definitions_P2P"
                   targetNamespace="http://p2p-copilot.ai/bpmn">
 
-  <bpmn:collaboration id="Collaboration_P2P">
-    <bpmn:participant id="Participant_P2P" name="P2P Copilot Process" processRef="Process_P2P" />
-  </bpmn:collaboration>
-
   <bpmn:process id="Process_P2P" name="Procure-to-Pay AI Pipeline" isExecutable="true">
 
-    <!-- Start Event -->
     <bpmn:startEvent id="Start_InvoiceReceived" name="Invoice Received">
-      <bpmn:messageEventDefinition id="MessageDef_Invoice" />
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
     </bpmn:startEvent>
 
-    <!-- Stage 1: Invoice Intake -->
     <bpmn:serviceTask id="Task_OCR_Extract" name="OCR Extract Invoice Data">
-      <bpmn:documentation>Claude Vision API extracts structured data from invoice image/PDF</bpmn:documentation>
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
     </bpmn:serviceTask>
 
-    <bpmn:exclusiveGateway id="Gateway_ExtractionOK" name="Extraction Successful?" />
+    <bpmn:exclusiveGateway id="Gateway_ExtractionOK" name="Extraction OK?" default="Flow_3b">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3a</bpmn:outgoing>
+      <bpmn:outgoing>Flow_3b</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
 
     <bpmn:userTask id="Task_ManualEntry" name="Manual Data Entry">
-      <bpmn:documentation>Human reviews and corrects failed OCR extraction</bpmn:documentation>
+      <bpmn:incoming>Flow_3b</bpmn:incoming>
+      <bpmn:outgoing>Flow_3c</bpmn:outgoing>
     </bpmn:userTask>
 
-    <!-- Stage 2: AI Validation -->
     <bpmn:serviceTask id="Task_PO_Lookup" name="Lookup Purchase Order">
-      <bpmn:documentation>Query ERP/Orchestrator for matching PO by number</bpmn:documentation>
+      <bpmn:incoming>Flow_3a</bpmn:incoming>
+      <bpmn:incoming>Flow_3c</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
     </bpmn:serviceTask>
 
     <bpmn:serviceTask id="Task_AI_Validate" name="AI Cross-Validation">
-      <bpmn:documentation>Claude LLM validates invoice against PO, receipt, and contract terms</bpmn:documentation>
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
     </bpmn:serviceTask>
 
-    <bpmn:exclusiveGateway id="Gateway_Valid" name="Validation Passed?" />
+    <bpmn:exclusiveGateway id="Gateway_Valid" name="Valid?" default="Flow_6b">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_6a</bpmn:outgoing>
+      <bpmn:outgoing>Flow_6b</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
 
-    <!-- Stage 3: Anomaly Detection -->
     <bpmn:serviceTask id="Task_AnomalyDetect" name="ML Anomaly Detection">
-      <bpmn:documentation>Python ML model + rules engine checks for duplicates, overcharges, mismatches</bpmn:documentation>
+      <bpmn:incoming>Flow_6a</bpmn:incoming>
+      <bpmn:outgoing>Flow_7</bpmn:outgoing>
     </bpmn:serviceTask>
 
-    <bpmn:exclusiveGateway id="Gateway_AnomaliesFound" name="Anomalies Found?" />
+    <bpmn:exclusiveGateway id="Gateway_AnomaliesFound" name="Anomalies?" default="Flow_8b">
+      <bpmn:incoming>Flow_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_8a</bpmn:outgoing>
+      <bpmn:outgoing>Flow_8b</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
 
     <bpmn:serviceTask id="Task_RiskScore" name="Calculate Risk Score">
-      <bpmn:documentation>Aggregate anomaly severity into overall risk level</bpmn:documentation>
+      <bpmn:incoming>Flow_8a</bpmn:incoming>
+      <bpmn:outgoing>Flow_9</bpmn:outgoing>
     </bpmn:serviceTask>
 
-    <!-- Stage 4: Approval Routing -->
-    <bpmn:exclusiveGateway id="Gateway_ApprovalLevel" name="Determine Approval Level" />
+    <bpmn:exclusiveGateway id="Gateway_ApprovalLevel" name="Approval Level" default="Flow_10b">
+      <bpmn:incoming>Flow_8b</bpmn:incoming>
+      <bpmn:incoming>Flow_9</bpmn:incoming>
+      <bpmn:outgoing>Flow_10a</bpmn:outgoing>
+      <bpmn:outgoing>Flow_10b</bpmn:outgoing>
+      <bpmn:outgoing>Flow_10c</bpmn:outgoing>
+      <bpmn:outgoing>Flow_10d</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
 
     <bpmn:serviceTask id="Task_AutoApprove" name="Auto-Approve">
-      <bpmn:documentation>Low-risk invoices below $5K auto-approved</bpmn:documentation>
+      <bpmn:incoming>Flow_10a</bpmn:incoming>
+      <bpmn:outgoing>Flow_11a</bpmn:outgoing>
     </bpmn:serviceTask>
 
     <bpmn:userTask id="Task_ManagerApproval" name="Manager Approval">
-      <bpmn:documentation>UiPath Action Center task for department manager</bpmn:documentation>
+      <bpmn:incoming>Flow_10b</bpmn:incoming>
+      <bpmn:outgoing>Flow_11b</bpmn:outgoing>
     </bpmn:userTask>
 
-    <bpmn:userTask id="Task_DirectorApproval" name="Finance Director Approval">
-      <bpmn:documentation>UiPath Action Center task for finance director ($25K-$100K)</bpmn:documentation>
+    <bpmn:userTask id="Task_DirectorApproval" name="Director Approval">
+      <bpmn:incoming>Flow_10c</bpmn:incoming>
+      <bpmn:outgoing>Flow_11c</bpmn:outgoing>
     </bpmn:userTask>
 
     <bpmn:userTask id="Task_CFOApproval" name="CFO Approval">
-      <bpmn:documentation>UiPath Action Center task for CFO ($100K+)</bpmn:documentation>
+      <bpmn:incoming>Flow_10d</bpmn:incoming>
+      <bpmn:outgoing>Flow_11d</bpmn:outgoing>
     </bpmn:userTask>
 
-    <bpmn:exclusiveGateway id="Gateway_ApprovalDecision" name="Approved?" />
+    <bpmn:exclusiveGateway id="Gateway_ApprovalDecision" name="Approved?" default="Flow_12b">
+      <bpmn:incoming>Flow_11b</bpmn:incoming>
+      <bpmn:incoming>Flow_11c</bpmn:incoming>
+      <bpmn:incoming>Flow_11d</bpmn:incoming>
+      <bpmn:outgoing>Flow_12a</bpmn:outgoing>
+      <bpmn:outgoing>Flow_12b</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
 
-    <bpmn:serviceTask id="Task_RejectNotify" name="Send Rejection Notification">
-      <bpmn:documentation>Notify vendor and internal stakeholders of rejection</bpmn:documentation>
+    <bpmn:serviceTask id="Task_GeneratePayment" name="Generate Payment File">
+      <bpmn:incoming>Flow_11a</bpmn:incoming>
+      <bpmn:incoming>Flow_12a</bpmn:incoming>
+      <bpmn:outgoing>Flow_14</bpmn:outgoing>
     </bpmn:serviceTask>
 
-    <!-- Stage 5: Payment Execution -->
-    <bpmn:serviceTask id="Task_GeneratePayment" name="Generate Payment File">
-      <bpmn:documentation>Create ACH/wire payment file for banking system</bpmn:documentation>
+    <bpmn:serviceTask id="Task_RejectNotify" name="Rejection Notification">
+      <bpmn:incoming>Flow_12b</bpmn:incoming>
+      <bpmn:outgoing>Flow_13</bpmn:outgoing>
     </bpmn:serviceTask>
 
     <bpmn:serviceTask id="Task_ERPPost" name="Post to ERP">
-      <bpmn:documentation>Record payment in ERP general ledger via API</bpmn:documentation>
+      <bpmn:incoming>Flow_14</bpmn:incoming>
+      <bpmn:outgoing>Flow_15</bpmn:outgoing>
     </bpmn:serviceTask>
 
     <bpmn:serviceTask id="Task_ConfirmPayment" name="Confirm Payment">
-      <bpmn:documentation>Verify payment execution and update status</bpmn:documentation>
+      <bpmn:incoming>Flow_15</bpmn:incoming>
+      <bpmn:outgoing>Flow_16</bpmn:outgoing>
     </bpmn:serviceTask>
 
-    <!-- Stage 6: Audit -->
     <bpmn:serviceTask id="Task_AuditLog" name="Update Audit Trail">
-      <bpmn:documentation>Log final status to audit trail dashboard</bpmn:documentation>
+      <bpmn:incoming>Flow_16</bpmn:incoming>
+      <bpmn:incoming>Flow_13</bpmn:incoming>
+      <bpmn:outgoing>Flow_17a</bpmn:outgoing>
     </bpmn:serviceTask>
 
-    <!-- End Events -->
-    <bpmn:endEvent id="End_Paid" name="Invoice Paid" />
-    <bpmn:endEvent id="End_Rejected" name="Invoice Rejected" />
-    <bpmn:endEvent id="End_ManualReview" name="Sent to Manual Review" />
+    <bpmn:endEvent id="End_Paid" name="Invoice Paid">
+      <bpmn:incoming>Flow_17a</bpmn:incoming>
+    </bpmn:endEvent>
 
-    <!-- Sequence Flows -->
+    <bpmn:endEvent id="End_ManualReview" name="Manual Review">
+      <bpmn:incoming>Flow_6b</bpmn:incoming>
+    </bpmn:endEvent>
+
     <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_InvoiceReceived" targetRef="Task_OCR_Extract" />
     <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_OCR_Extract" targetRef="Gateway_ExtractionOK" />
-    <bpmn:sequenceFlow id="Flow_3a" name="Yes" sourceRef="Gateway_ExtractionOK" targetRef="Task_PO_Lookup" />
+    <bpmn:sequenceFlow id="Flow_3a" name="Yes" sourceRef="Gateway_ExtractionOK" targetRef="Task_PO_Lookup">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">extraction_success == true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
     <bpmn:sequenceFlow id="Flow_3b" name="No" sourceRef="Gateway_ExtractionOK" targetRef="Task_ManualEntry" />
     <bpmn:sequenceFlow id="Flow_3c" sourceRef="Task_ManualEntry" targetRef="Task_PO_Lookup" />
     <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_PO_Lookup" targetRef="Task_AI_Validate" />
     <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_AI_Validate" targetRef="Gateway_Valid" />
-    <bpmn:sequenceFlow id="Flow_6a" name="Yes" sourceRef="Gateway_Valid" targetRef="Task_AnomalyDetect" />
+    <bpmn:sequenceFlow id="Flow_6a" name="Yes" sourceRef="Gateway_Valid" targetRef="Task_AnomalyDetect">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">validation_passed == true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
     <bpmn:sequenceFlow id="Flow_6b" name="No" sourceRef="Gateway_Valid" targetRef="End_ManualReview" />
     <bpmn:sequenceFlow id="Flow_7" sourceRef="Task_AnomalyDetect" targetRef="Gateway_AnomaliesFound" />
-    <bpmn:sequenceFlow id="Flow_8a" name="Yes" sourceRef="Gateway_AnomaliesFound" targetRef="Task_RiskScore" />
+    <bpmn:sequenceFlow id="Flow_8a" name="Yes" sourceRef="Gateway_AnomaliesFound" targetRef="Task_RiskScore">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">anomalies_found == true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
     <bpmn:sequenceFlow id="Flow_8b" name="No" sourceRef="Gateway_AnomaliesFound" targetRef="Gateway_ApprovalLevel" />
     <bpmn:sequenceFlow id="Flow_9" sourceRef="Task_RiskScore" targetRef="Gateway_ApprovalLevel" />
-    <bpmn:sequenceFlow id="Flow_10a" name="&lt;$5K Low Risk" sourceRef="Gateway_ApprovalLevel" targetRef="Task_AutoApprove" />
+    <bpmn:sequenceFlow id="Flow_10a" name="Under $5K" sourceRef="Gateway_ApprovalLevel" targetRef="Task_AutoApprove">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">invoice_total &lt; 5000</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
     <bpmn:sequenceFlow id="Flow_10b" name="$5K-$25K" sourceRef="Gateway_ApprovalLevel" targetRef="Task_ManagerApproval" />
-    <bpmn:sequenceFlow id="Flow_10c" name="$25K-$100K" sourceRef="Gateway_ApprovalLevel" targetRef="Task_DirectorApproval" />
-    <bpmn:sequenceFlow id="Flow_10d" name="$100K+" sourceRef="Gateway_ApprovalLevel" targetRef="Task_CFOApproval" />
+    <bpmn:sequenceFlow id="Flow_10c" name="$25K-$100K" sourceRef="Gateway_ApprovalLevel" targetRef="Task_DirectorApproval">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">invoice_total &gt;= 25000 &amp;&amp; invoice_total &lt; 100000</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_10d" name="$100K+" sourceRef="Gateway_ApprovalLevel" targetRef="Task_CFOApproval">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">invoice_total &gt;= 100000</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
     <bpmn:sequenceFlow id="Flow_11a" sourceRef="Task_AutoApprove" targetRef="Task_GeneratePayment" />
     <bpmn:sequenceFlow id="Flow_11b" sourceRef="Task_ManagerApproval" targetRef="Gateway_ApprovalDecision" />
     <bpmn:sequenceFlow id="Flow_11c" sourceRef="Task_DirectorApproval" targetRef="Gateway_ApprovalDecision" />
     <bpmn:sequenceFlow id="Flow_11d" sourceRef="Task_CFOApproval" targetRef="Gateway_ApprovalDecision" />
-    <bpmn:sequenceFlow id="Flow_12a" name="Approved" sourceRef="Gateway_ApprovalDecision" targetRef="Task_GeneratePayment" />
+    <bpmn:sequenceFlow id="Flow_12a" name="Approved" sourceRef="Gateway_ApprovalDecision" targetRef="Task_GeneratePayment">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">approval_decision == "approved"</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
     <bpmn:sequenceFlow id="Flow_12b" name="Rejected" sourceRef="Gateway_ApprovalDecision" targetRef="Task_RejectNotify" />
     <bpmn:sequenceFlow id="Flow_13" sourceRef="Task_RejectNotify" targetRef="Task_AuditLog" />
     <bpmn:sequenceFlow id="Flow_14" sourceRef="Task_GeneratePayment" targetRef="Task_ERPPost" />
     <bpmn:sequenceFlow id="Flow_15" sourceRef="Task_ERPPost" targetRef="Task_ConfirmPayment" />
     <bpmn:sequenceFlow id="Flow_16" sourceRef="Task_ConfirmPayment" targetRef="Task_AuditLog" />
     <bpmn:sequenceFlow id="Flow_17a" sourceRef="Task_AuditLog" targetRef="End_Paid" />
-    <bpmn:sequenceFlow id="Flow_17b" sourceRef="Task_AuditLog" targetRef="End_Rejected" />
 
   </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_P2P">
+
+      <bpmndi:BPMNShape id="Start_InvoiceReceived_di" bpmnElement="Start_InvoiceReceived">
+        <dc:Bounds x="160" y="260" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="140" y="303" width="76" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_OCR_Extract_di" bpmnElement="Task_OCR_Extract">
+        <dc:Bounds x="250" y="238" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Gateway_ExtractionOK_di" bpmnElement="Gateway_ExtractionOK" isMarkerVisible="true">
+        <dc:Bounds x="405" y="253" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="393" y="230" width="74" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_ManualEntry_di" bpmnElement="Task_ManualEntry">
+        <dc:Bounds x="380" y="370" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_PO_Lookup_di" bpmnElement="Task_PO_Lookup">
+        <dc:Bounds x="520" y="238" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_AI_Validate_di" bpmnElement="Task_AI_Validate">
+        <dc:Bounds x="680" y="238" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Gateway_Valid_di" bpmnElement="Gateway_Valid" isMarkerVisible="true">
+        <dc:Bounds x="835" y="253" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="840" y="230" width="40" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_AnomalyDetect_di" bpmnElement="Task_AnomalyDetect">
+        <dc:Bounds x="940" y="238" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Gateway_AnomaliesFound_di" bpmnElement="Gateway_AnomaliesFound" isMarkerVisible="true">
+        <dc:Bounds x="1095" y="253" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1090" y="230" width="60" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_RiskScore_di" bpmnElement="Task_RiskScore">
+        <dc:Bounds x="1070" y="370" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Gateway_ApprovalLevel_di" bpmnElement="Gateway_ApprovalLevel" isMarkerVisible="true">
+        <dc:Bounds x="1235" y="253" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1220" y="230" width="80" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_AutoApprove_di" bpmnElement="Task_AutoApprove">
+        <dc:Bounds x="1350" y="120" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_ManagerApproval_di" bpmnElement="Task_ManagerApproval">
+        <dc:Bounds x="1350" y="238" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_DirectorApproval_di" bpmnElement="Task_DirectorApproval">
+        <dc:Bounds x="1350" y="350" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_CFOApproval_di" bpmnElement="Task_CFOApproval">
+        <dc:Bounds x="1350" y="460" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Gateway_ApprovalDecision_di" bpmnElement="Gateway_ApprovalDecision" isMarkerVisible="true">
+        <dc:Bounds x="1515" y="253" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1510" y="230" width="60" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_GeneratePayment_di" bpmnElement="Task_GeneratePayment">
+        <dc:Bounds x="1630" y="150" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_RejectNotify_di" bpmnElement="Task_RejectNotify">
+        <dc:Bounds x="1630" y="370" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_ERPPost_di" bpmnElement="Task_ERPPost">
+        <dc:Bounds x="1790" y="150" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_ConfirmPayment_di" bpmnElement="Task_ConfirmPayment">
+        <dc:Bounds x="1950" y="150" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_AuditLog_di" bpmnElement="Task_AuditLog">
+        <dc:Bounds x="2110" y="238" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="End_Paid_di" bpmnElement="End_Paid">
+        <dc:Bounds x="2272" y="260" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="2258" y="303" width="64" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="End_ManualReview_di" bpmnElement="End_ManualReview">
+        <dc:Bounds x="842" y="370" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="822" y="413" width="76" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="196" y="278" />
+        <di:waypoint x="250" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="350" y="278" />
+        <di:waypoint x="405" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3a_di" bpmnElement="Flow_3a">
+        <di:waypoint x="455" y="278" />
+        <di:waypoint x="520" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3b_di" bpmnElement="Flow_3b">
+        <di:waypoint x="430" y="303" />
+        <di:waypoint x="430" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3c_di" bpmnElement="Flow_3c">
+        <di:waypoint x="480" y="410" />
+        <di:waypoint x="570" y="410" />
+        <di:waypoint x="570" y="318" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4">
+        <di:waypoint x="620" y="278" />
+        <di:waypoint x="680" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5">
+        <di:waypoint x="780" y="278" />
+        <di:waypoint x="835" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_6a_di" bpmnElement="Flow_6a">
+        <di:waypoint x="885" y="278" />
+        <di:waypoint x="940" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_6b_di" bpmnElement="Flow_6b">
+        <di:waypoint x="860" y="303" />
+        <di:waypoint x="860" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_7_di" bpmnElement="Flow_7">
+        <di:waypoint x="1040" y="278" />
+        <di:waypoint x="1095" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_8a_di" bpmnElement="Flow_8a">
+        <di:waypoint x="1120" y="303" />
+        <di:waypoint x="1120" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_8b_di" bpmnElement="Flow_8b">
+        <di:waypoint x="1145" y="278" />
+        <di:waypoint x="1235" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_9_di" bpmnElement="Flow_9">
+        <di:waypoint x="1170" y="410" />
+        <di:waypoint x="1260" y="410" />
+        <di:waypoint x="1260" y="303" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10a_di" bpmnElement="Flow_10a">
+        <di:waypoint x="1260" y="253" />
+        <di:waypoint x="1260" y="160" />
+        <di:waypoint x="1350" y="160" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10b_di" bpmnElement="Flow_10b">
+        <di:waypoint x="1285" y="278" />
+        <di:waypoint x="1350" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10c_di" bpmnElement="Flow_10c">
+        <di:waypoint x="1260" y="303" />
+        <di:waypoint x="1260" y="390" />
+        <di:waypoint x="1350" y="390" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10d_di" bpmnElement="Flow_10d">
+        <di:waypoint x="1260" y="303" />
+        <di:waypoint x="1260" y="500" />
+        <di:waypoint x="1350" y="500" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_11a_di" bpmnElement="Flow_11a">
+        <di:waypoint x="1450" y="160" />
+        <di:waypoint x="1630" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_11b_di" bpmnElement="Flow_11b">
+        <di:waypoint x="1450" y="278" />
+        <di:waypoint x="1515" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_11c_di" bpmnElement="Flow_11c">
+        <di:waypoint x="1450" y="390" />
+        <di:waypoint x="1540" y="390" />
+        <di:waypoint x="1540" y="303" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_11d_di" bpmnElement="Flow_11d">
+        <di:waypoint x="1450" y="500" />
+        <di:waypoint x="1540" y="500" />
+        <di:waypoint x="1540" y="303" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_12a_di" bpmnElement="Flow_12a">
+        <di:waypoint x="1540" y="253" />
+        <di:waypoint x="1540" y="190" />
+        <di:waypoint x="1630" y="190" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_12b_di" bpmnElement="Flow_12b">
+        <di:waypoint x="1540" y="303" />
+        <di:waypoint x="1540" y="410" />
+        <di:waypoint x="1630" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_13_di" bpmnElement="Flow_13">
+        <di:waypoint x="1730" y="410" />
+        <di:waypoint x="2160" y="410" />
+        <di:waypoint x="2160" y="318" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_14_di" bpmnElement="Flow_14">
+        <di:waypoint x="1730" y="190" />
+        <di:waypoint x="1790" y="190" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_15_di" bpmnElement="Flow_15">
+        <di:waypoint x="1890" y="190" />
+        <di:waypoint x="1950" y="190" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_16_di" bpmnElement="Flow_16">
+        <di:waypoint x="2050" y="190" />
+        <di:waypoint x="2160" y="190" />
+        <di:waypoint x="2160" y="238" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_17a_di" bpmnElement="Flow_17a">
+        <di:waypoint x="2210" y="278" />
+        <di:waypoint x="2272" y="278" />
+      </bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
 </bpmn:definitions>
