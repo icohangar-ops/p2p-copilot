@@ -1,0 +1,19 @@
+overcharge_threshold_pct: 10
+quantity_tolerance_pct: 5
+duplicate_window_days: 7
+
+max_invoice_amount: 500000
+require_po_above: 1000
+
+vendor_blocklist: []
+
+auto_flag_rules:
+  - condition: "total > 100000"
+    risk_level: "high"
+    description: "Large invoice requires additional review"
+  - condition: "no_po"
+    risk_level: "medium"
+    description: "Invoice without PO reference"
+  - condition: "new_vendor"
+    risk_level: "medium"
+    description: "First invoice from this vendor"

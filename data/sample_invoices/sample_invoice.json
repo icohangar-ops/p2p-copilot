@@ -1,0 +1,36 @@
+{
+  "invoice_id": "INV-SAMPLE001",
+  "vendor_name": "Industrial Supply Co.",
+  "vendor_id": "V-2041",
+  "invoice_number": "ISC-2026-04872",
+  "invoice_date": "2026-05-10",
+  "due_date": "2026-06-09",
+  "currency": "USD",
+  "subtotal": "12750.00",
+  "tax": "1020.00",
+  "total": "13770.00",
+  "po_number": "PO-2026-0341",
+  "line_items": [
+    {
+      "description": "Hydraulic Press Filter - Model HP-400",
+      "quantity": "5",
+      "unit_price": "1250.00",
+      "total": "6250.00",
+      "po_line_ref": "PO-0341-L1"
+    },
+    {
+      "description": "Conveyor Belt Assembly - 12ft",
+      "quantity": "3",
+      "unit_price": "1500.00",
+      "total": "4500.00",
+      "po_line_ref": "PO-0341-L2"
+    },
+    {
+      "description": "Safety Valve Kit - SV-200",
+      "quantity": "10",
+      "unit_price": "200.00",
+      "total": "2000.00",
+      "po_line_ref": "PO-0341-L3"
+    }
+  ]
+}

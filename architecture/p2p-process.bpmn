@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_P2P"
+                  targetNamespace="http://p2p-copilot.ai/bpmn">
+
+  <bpmn:collaboration id="Collaboration_P2P">
+    <bpmn:participant id="Participant_P2P" name="P2P Copilot Process" processRef="Process_P2P" />
+  </bpmn:collaboration>
+
+  <bpmn:process id="Process_P2P" name="Procure-to-Pay AI Pipeline" isExecutable="true">
+
+    <!-- Start Event -->
+    <bpmn:startEvent id="Start_InvoiceReceived" name="Invoice Received">
+      <bpmn:messageEventDefinition id="MessageDef_Invoice" />
+    </bpmn:startEvent>
+
+    <!-- Stage 1: Invoice Intake -->
+    <bpmn:serviceTask id="Task_OCR_Extract" name="OCR Extract Invoice Data">
+      <bpmn:documentation>Claude Vision API extracts structured data from invoice image/PDF</bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="Gateway_ExtractionOK" name="Extraction Successful?" />
+
+    <bpmn:userTask id="Task_ManualEntry" name="Manual Data Entry">
+      <bpmn:documentation>Human reviews and corrects failed OCR extraction</bpmn:documentation>
+    </bpmn:userTask>
+
+    <!-- Stage 2: AI Validation -->
+    <bpmn:serviceTask id="Task_PO_Lookup" name="Lookup Purchase Order">
+      <bpmn:documentation>Query ERP/Orchestrator for matching PO by number</bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="Task_AI_Validate" name="AI Cross-Validation">
+      <bpmn:documentation>Claude LLM validates invoice against PO, receipt, and contract terms</bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="Gateway_Valid" name="Validation Passed?" />
+
+    <!-- Stage 3: Anomaly Detection -->
+    <bpmn:serviceTask id="Task_AnomalyDetect" name="ML Anomaly Detection">
+      <bpmn:documentation>Python ML model + rules engine checks for duplicates, overcharges, mismatches</bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="Gateway_AnomaliesFound" name="Anomalies Found?" />
+
+    <bpmn:serviceTask id="Task_RiskScore" name="Calculate Risk Score">
+      <bpmn:documentation>Aggregate anomaly severity into overall risk level</bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <!-- Stage 4: Approval Routing -->
+    <bpmn:exclusiveGateway id="Gateway_ApprovalLevel" name="Determine Approval Level" />
+
+    <bpmn:serviceTask id="Task_AutoApprove" name="Auto-Approve">
+      <bpmn:documentation>Low-risk invoices below $5K auto-approved</bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_ManagerApproval" name="Manager Approval">
+      <bpmn:documentation>UiPath Action Center task for department manager</bpmn:documentation>
+    </bpmn:userTask>
+
+    <bpmn:userTask id="Task_DirectorApproval" name="Finance Director Approval">
+      <bpmn:documentation>UiPath Action Center task for finance director ($25K-$100K)</bpmn:documentation>
+    </bpmn:userTask>
+
+    <bpmn:userTask id="Task_CFOApproval" name="CFO Approval">
+      <bpmn:documentation>UiPath Action Center task for CFO ($100K+)</bpmn:documentation>
+    </bpmn:userTask>
+
+    <bpmn:exclusiveGateway id="Gateway_ApprovalDecision" name="Approved?" />
+
+    <bpmn:serviceTask id="Task_RejectNotify" name="Send Rejection Notification">
+      <bpmn:documentation>Notify vendor and internal stakeholders of rejection</bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <!-- Stage 5: Payment Execution -->
+    <bpmn:serviceTask id="Task_GeneratePayment" name="Generate Payment File">
+      <bpmn:documentation>Create ACH/wire payment file for banking system</bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="Task_ERPPost" name="Post to ERP">
+      <bpmn:documentation>Record payment in ERP general ledger via API</bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="Task_ConfirmPayment" name="Confirm Payment">
+      <bpmn:documentation>Verify payment execution and update status</bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <!-- Stage 6: Audit -->
+    <bpmn:serviceTask id="Task_AuditLog" name="Update Audit Trail">
+      <bpmn:documentation>Log final status to audit trail dashboard</bpmn:documentation>
+    </bpmn:serviceTask>
+
+    <!-- End Events -->
+    <bpmn:endEvent id="End_Paid" name="Invoice Paid" />
+    <bpmn:endEvent id="End_Rejected" name="Invoice Rejected" />
+    <bpmn:endEvent id="End_ManualReview" name="Sent to Manual Review" />
+
+    <!-- Sequence Flows -->
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_InvoiceReceived" targetRef="Task_OCR_Extract" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_OCR_Extract" targetRef="Gateway_ExtractionOK" />
+    <bpmn:sequenceFlow id="Flow_3a" name="Yes" sourceRef="Gateway_ExtractionOK" targetRef="Task_PO_Lookup" />
+    <bpmn:sequenceFlow id="Flow_3b" name="No" sourceRef="Gateway_ExtractionOK" targetRef="Task_ManualEntry" />
+    <bpmn:sequenceFlow id="Flow_3c" sourceRef="Task_ManualEntry" targetRef="Task_PO_Lookup" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_PO_Lookup" targetRef="Task_AI_Validate" />
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_AI_Validate" targetRef="Gateway_Valid" />
+    <bpmn:sequenceFlow id="Flow_6a" name="Yes" sourceRef="Gateway_Valid" targetRef="Task_AnomalyDetect" />
+    <bpmn:sequenceFlow id="Flow_6b" name="No" sourceRef="Gateway_Valid" targetRef="End_ManualReview" />
+    <bpmn:sequenceFlow id="Flow_7" sourceRef="Task_AnomalyDetect" targetRef="Gateway_AnomaliesFound" />
+    <bpmn:sequenceFlow id="Flow_8a" name="Yes" sourceRef="Gateway_AnomaliesFound" targetRef="Task_RiskScore" />
+    <bpmn:sequenceFlow id="Flow_8b" name="No" sourceRef="Gateway_AnomaliesFound" targetRef="Gateway_ApprovalLevel" />
+    <bpmn:sequenceFlow id="Flow_9" sourceRef="Task_RiskScore" targetRef="Gateway_ApprovalLevel" />
+    <bpmn:sequenceFlow id="Flow_10a" name="&lt;$5K Low Risk" sourceRef="Gateway_ApprovalLevel" targetRef="Task_AutoApprove" />
+    <bpmn:sequenceFlow id="Flow_10b" name="$5K-$25K" sourceRef="Gateway_ApprovalLevel" targetRef="Task_ManagerApproval" />
+    <bpmn:sequenceFlow id="Flow_10c" name="$25K-$100K" sourceRef="Gateway_ApprovalLevel" targetRef="Task_DirectorApproval" />
+    <bpmn:sequenceFlow id="Flow_10d" name="$100K+" sourceRef="Gateway_ApprovalLevel" targetRef="Task_CFOApproval" />
+    <bpmn:sequenceFlow id="Flow_11a" sourceRef="Task_AutoApprove" targetRef="Task_GeneratePayment" />
+    <bpmn:sequenceFlow id="Flow_11b" sourceRef="Task_ManagerApproval" targetRef="Gateway_ApprovalDecision" />
+    <bpmn:sequenceFlow id="Flow_11c" sourceRef="Task_DirectorApproval" targetRef="Gateway_ApprovalDecision" />
+    <bpmn:sequenceFlow id="Flow_11d" sourceRef="Task_CFOApproval" targetRef="Gateway_ApprovalDecision" />
+    <bpmn:sequenceFlow id="Flow_12a" name="Approved" sourceRef="Gateway_ApprovalDecision" targetRef="Task_GeneratePayment" />
+    <bpmn:sequenceFlow id="Flow_12b" name="Rejected" sourceRef="Gateway_ApprovalDecision" targetRef="Task_RejectNotify" />
+    <bpmn:sequenceFlow id="Flow_13" sourceRef="Task_RejectNotify" targetRef="Task_AuditLog" />
+    <bpmn:sequenceFlow id="Flow_14" sourceRef="Task_GeneratePayment" targetRef="Task_ERPPost" />
+    <bpmn:sequenceFlow id="Flow_15" sourceRef="Task_ERPPost" targetRef="Task_ConfirmPayment" />
+    <bpmn:sequenceFlow id="Flow_16" sourceRef="Task_ConfirmPayment" targetRef="Task_AuditLog" />
+    <bpmn:sequenceFlow id="Flow_17a" sourceRef="Task_AuditLog" targetRef="End_Paid" />
+    <bpmn:sequenceFlow id="Flow_17b" sourceRef="Task_AuditLog" targetRef="End_Rejected" />
+
+  </bpmn:process>
+</bpmn:definitions>

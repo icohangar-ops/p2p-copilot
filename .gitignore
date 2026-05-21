@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# UiPath
+.local/
+.objects/
+.project/
+.settings/
+.tmh/
+*.nupkg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Models
+agents/anomaly_detector/models/*.pkl
+agents/anomaly_detector/models/*.joblib
+
+# Data (keep samples, ignore real data)
+data/production/
+data/uploads/
+
+# Logs
+*.log
+logs/
+
+# UV
+.uv/
