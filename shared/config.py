@@ -17,8 +17,11 @@ class UiPathConfig(BaseModel):
     orchestrator_folder: str = "P2P-Copilot"
 
 
-class ClaudeConfig(BaseModel):
-    model: str = "claude-sonnet-4-20250514"
+class LLMConfig(BaseModel):
+    provider: str = "z.ai"
+    base_url: str = "https://api.z.ai/api/paas/v4/"
+    api_key: str = ""
+    model: str = "glm-5"
     max_tokens: int = 4096
     temperature: float = 0.1
 
@@ -38,7 +41,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     uipath: UiPathConfig = Field(default_factory=UiPathConfig)
-    claude: ClaudeConfig = Field(default_factory=ClaudeConfig)
+    llm: LLMConfig = Field(default_factory=LLMConfig)
     approval_policy: ApprovalPolicy = Field(default_factory=ApprovalPolicy)
 
     data_dir: Path = Path("data")

@@ -1,4 +1,4 @@
-"""Stage 1: Invoice Intake — OCR extraction and structuring via Claude Vision."""
+"""Stage 1: Invoice Intake — OCR extraction and structuring via GPT-4o Vision."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-import anthropic
+from openai import OpenAI
 
 from shared.audit import audit
 from shared.config import settings
@@ -43,27 +43,28 @@ Be precise with numbers. If a field is not visible, use null. Return ONLY valid 
 
 class InvoiceExtractor:
     def __init__(self) -> None:
-        self.client = anthropic.Anthropic()
-        self.model = settings.claude.model
+        self.client = OpenAI(
+            api_key=settings.llm.api_key,
+            base_url=settings.llm.base_url or None,
+        )
+        self.model = settings.llm.model
 
     async def extract_from_file(self, file_path: Path) -> Invoice:
         image_data = base64.standard_b64encode(file_path.read_bytes()).decode("utf-8")
         media_type = self._detect_media_type(file_path)
 
-        response = self.client.messages.create(
+        response = self.client.chat.completions.create(
             model=self.model,
-            max_tokens=settings.claude.max_tokens,
-            temperature=settings.claude.temperature,
+            max_tokens=settings.llm.max_tokens,
+            temperature=settings.llm.temperature,
             messages=[
                 {
                     "role": "user",
                     "content": [
                         {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": image_data,
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{media_type};base64,{image_data}",
                             },
                         },
                         {"type": "text", "text": EXTRACTION_PROMPT},
@@ -72,7 +73,7 @@ class InvoiceExtractor:
             ],
         )
 
-        raw_json = response.content[0].text
+        raw_json = response.choices[0].message.content
         parsed = self._parse_response(raw_json)
         invoice = self._to_invoice(parsed, source=str(file_path))
 
@@ -80,16 +81,16 @@ class InvoiceExtractor:
             stage="invoice_intake",
             invoice_id=invoice.invoice_id,
             action="extracted",
-            actor="claude_vision",
+            actor="gpt4o_vision",
             details={"source": str(file_path), "confidence": invoice.confidence_score},
         )
         return invoice
 
     async def extract_from_text(self, raw_text: str) -> Invoice:
-        response = self.client.messages.create(
+        response = self.client.chat.completions.create(
             model=self.model,
-            max_tokens=settings.claude.max_tokens,
-            temperature=settings.claude.temperature,
+            max_tokens=settings.llm.max_tokens,
+            temperature=settings.llm.temperature,
             messages=[
                 {
                     "role": "user",
@@ -98,7 +99,7 @@ class InvoiceExtractor:
             ],
         )
 
-        raw_json = response.content[0].text
+        raw_json = response.choices[0].message.content
         parsed = self._parse_response(raw_json)
         invoice = self._to_invoice(parsed, source="email_text")
         invoice.raw_text = raw_text
@@ -107,7 +108,7 @@ class InvoiceExtractor:
             stage="invoice_intake",
             invoice_id=invoice.invoice_id,
             action="extracted_from_text",
-            actor="claude",
+            actor="gpt4o",
         )
         return invoice
 

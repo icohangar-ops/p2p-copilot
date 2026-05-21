@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import anthropic
+from openai import OpenAI
 
 from shared.audit import audit
 from shared.config import settings
@@ -43,8 +43,11 @@ Return ONLY valid JSON."""
 
 class InvoiceValidator:
     def __init__(self) -> None:
-        self.client = anthropic.Anthropic()
-        self.model = settings.claude.model
+        self.client = OpenAI(
+            api_key=settings.llm.api_key,
+            base_url=settings.llm.base_url or None,
+        )
+        self.model = settings.llm.model
 
     async def validate(
         self,
@@ -68,7 +71,7 @@ class InvoiceValidator:
             stage="ai_validation",
             invoice_id=invoice.invoice_id,
             action="validated",
-            actor="claude_validator",
+            actor="gpt4o_validator",
             details={
                 "is_valid": result.is_valid,
                 "issues_count": len(result.issues),
@@ -86,14 +89,14 @@ class InvoiceValidator:
             po_json=po.model_dump_json(indent=2),
         )
 
-        response = self.client.messages.create(
+        response = self.client.chat.completions.create(
             model=self.model,
-            max_tokens=settings.claude.max_tokens,
-            temperature=settings.claude.temperature,
+            max_tokens=settings.llm.max_tokens,
+            temperature=settings.llm.temperature,
             messages=[{"role": "user", "content": prompt}],
         )
 
-        parsed = self._parse_response(response.content[0].text)
+        parsed = self._parse_response(response.choices[0].message.content)
         return ValidationResult(
             invoice_id=invoice.invoice_id,
             is_valid=parsed["is_valid"],
