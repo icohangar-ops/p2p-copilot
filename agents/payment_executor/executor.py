@@ -9,6 +9,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
+from cubiczan_resilience import InMemoryIdempotencyStore
+
 from shared.audit import audit
 from shared.models import ApprovalRequest, Invoice, PaymentRecord
 
@@ -16,6 +18,15 @@ from shared.models import ApprovalRequest, Invoice, PaymentRecord
 class PaymentExecutor:
     def __init__(self) -> None:
         self._payment_log: list[PaymentRecord] = []
+        # Idempotency guard: a given invoice must only ever be paid once,
+        # even if execute() is retried or replayed for the same invoice_id.
+        self._idempotency = InMemoryIdempotencyStore()
+
+    def _existing_payment(self, invoice_id: str) -> PaymentRecord | None:
+        for record in self._payment_log:
+            if record.invoice_id == invoice_id:
+                return record
+        return None
 
     async def execute(
         self,
@@ -23,6 +34,13 @@ class PaymentExecutor:
         approval: ApprovalRequest,
         payment_method: str = "ach",
     ) -> PaymentRecord:
+        # Pre-flight idempotency check: if this invoice was already paid,
+        # return the existing PaymentRecord instead of initiating a duplicate.
+        if self._idempotency.already_done(invoice.invoice_id):
+            existing = self._existing_payment(invoice.invoice_id)
+            if existing is not None:
+                return existing
+
         if approval.decision != "approved":
             raise ValueError(
                 f"Cannot pay invoice {invoice.invoice_id}: approval status is '{approval.decision}'"
@@ -37,6 +55,16 @@ class PaymentExecutor:
             executed_at=datetime.utcnow(),
             status="initiated",
         )
+
+        # Atomically claim the invoice_id before initiating the payment so a
+        # concurrent/retried call cannot produce a second payment. First writer
+        # wins; if the key was already claimed, return the existing record.
+        if not self._idempotency.mark_done(
+            invoice.invoice_id, payment.payment_reference
+        ):
+            existing = self._existing_payment(invoice.invoice_id)
+            if existing is not None:
+                return existing
 
         audit.log(
             stage="payment_execution",

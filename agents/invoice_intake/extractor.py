@@ -7,7 +7,9 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from openai import OpenAI
+from openai import AsyncOpenAI
+
+from cubiczan_resilience import resilient
 
 from shared.audit import audit
 from shared.config import settings
@@ -43,21 +45,28 @@ Be precise with numbers. If a field is not visible, use null. Return ONLY valid 
 
 class InvoiceExtractor:
     def __init__(self) -> None:
-        self.client = OpenAI(
+        self.client = AsyncOpenAI(
             api_key=settings.llm.api_key,
             base_url=settings.llm.base_url or None,
         )
         self.model = settings.llm.model
 
+    @resilient(timeout=60.0, max_attempts=3)
+    async def _chat(self, messages: list[Any]) -> Any:
+        """Timeout + retry-wrapped LLM call (non-blocking via AsyncOpenAI)."""
+        return await self.client.chat.completions.create(
+            model=self.model,
+            max_tokens=settings.llm.max_tokens,
+            temperature=settings.llm.temperature,
+            messages=messages,
+        )
+
     async def extract_from_file(self, file_path: Path) -> Invoice:
         image_data = base64.standard_b64encode(file_path.read_bytes()).decode("utf-8")
         media_type = self._detect_media_type(file_path)
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            max_tokens=settings.llm.max_tokens,
-            temperature=settings.llm.temperature,
-            messages=[
+        response = await self._chat(
+            [
                 {
                     "role": "user",
                     "content": [
@@ -70,7 +79,7 @@ class InvoiceExtractor:
                         {"type": "text", "text": EXTRACTION_PROMPT},
                     ],
                 }
-            ],
+            ]
         )
 
         raw_json = response.choices[0].message.content
@@ -87,16 +96,13 @@ class InvoiceExtractor:
         return invoice
 
     async def extract_from_text(self, raw_text: str) -> Invoice:
-        response = self.client.chat.completions.create(
-            model=self.model,
-            max_tokens=settings.llm.max_tokens,
-            temperature=settings.llm.temperature,
-            messages=[
+        response = await self._chat(
+            [
                 {
                     "role": "user",
                     "content": f"{EXTRACTION_PROMPT}\n\nInvoice text:\n{raw_text}",
                 }
-            ],
+            ]
         )
 
         raw_json = response.choices[0].message.content

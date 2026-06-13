@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from openai import OpenAI
+from openai import AsyncOpenAI
+
+from cubiczan_resilience import resilient
 
 from shared.audit import audit
 from shared.config import settings
@@ -43,11 +45,21 @@ Return ONLY valid JSON."""
 
 class InvoiceValidator:
     def __init__(self) -> None:
-        self.client = OpenAI(
+        self.client = AsyncOpenAI(
             api_key=settings.llm.api_key,
             base_url=settings.llm.base_url or None,
         )
         self.model = settings.llm.model
+
+    @resilient(timeout=60.0, max_attempts=3)
+    async def _chat(self, prompt: str) -> Any:
+        """Timeout + retry-wrapped LLM call (non-blocking via AsyncOpenAI)."""
+        return await self.client.chat.completions.create(
+            model=self.model,
+            max_tokens=settings.llm.max_tokens,
+            temperature=settings.llm.temperature,
+            messages=[{"role": "user", "content": prompt}],
+        )
 
     async def validate(
         self,
@@ -89,12 +101,7 @@ class InvoiceValidator:
             po_json=po.model_dump_json(indent=2),
         )
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            max_tokens=settings.llm.max_tokens,
-            temperature=settings.llm.temperature,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        response = await self._chat(prompt)
 
         parsed = self._parse_response(response.choices[0].message.content)
         return ValidationResult(

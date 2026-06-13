@@ -6,7 +6,12 @@ from typing import Any
 
 import httpx
 
+from cubiczan_resilience import resilient
+
 from shared.config import settings
+
+# Per-request HTTP timeout for all UiPath Orchestrator calls.
+HTTP_TIMEOUT = 30.0
 
 
 class UiPathClient:
@@ -16,10 +21,11 @@ class UiPathClient:
         self.tenant = settings.uipath.tenant_name
         self._token: str | None = None
 
+    @resilient(timeout=HTTP_TIMEOUT, max_attempts=3)
     async def _ensure_token(self) -> str:
         if self._token:
             return self._token
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             resp = await client.post(
                 f"{self.base_url}/identity_/connect/token",
                 data={
@@ -47,10 +53,11 @@ class UiPathClient:
             "X-UIPATH-OrganizationUnitId": settings.uipath.orchestrator_folder,
         }
 
+    @resilient(timeout=HTTP_TIMEOUT, max_attempts=3)
     async def add_queue_item(
         self, queue_name: str, data: dict[str, Any], priority: str = "Normal"
     ) -> dict[str, Any]:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             resp = await client.post(
                 self._api_url("/Queues/UiPathODataSvc.AddQueueItem"),
                 headers=await self._headers(),
@@ -65,10 +72,11 @@ class UiPathClient:
             resp.raise_for_status()
             return resp.json()
 
+    @resilient(timeout=HTTP_TIMEOUT, max_attempts=3)
     async def get_queue_items(
         self, queue_name: str, status: str = "New", top: int = 50
     ) -> list[dict[str, Any]]:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             resp = await client.get(
                 self._api_url("/QueueItems"),
                 headers=await self._headers(),
@@ -81,10 +89,11 @@ class UiPathClient:
             resp.raise_for_status()
             return resp.json().get("value", [])
 
+    @resilient(timeout=HTTP_TIMEOUT, max_attempts=3)
     async def start_job(
         self, process_key: str, input_args: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             body: dict[str, Any] = {
                 "startInfo": {
                     "ReleaseKey": process_key,
@@ -102,8 +111,9 @@ class UiPathClient:
             resp.raise_for_status()
             return resp.json()
 
+    @resilient(timeout=HTTP_TIMEOUT, max_attempts=3)
     async def get_job_status(self, job_id: int) -> dict[str, Any]:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             resp = await client.get(
                 self._api_url(f"/Jobs({job_id})"),
                 headers=await self._headers(),
