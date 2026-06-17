@@ -2,7 +2,7 @@
 
 > **UiPath AgentHack 2026 | Track 2: Maestro BPMN**
 
-An end-to-end AI-powered Procure-to-Pay pipeline that orchestrates invoice processing from intake through payment using UiPath Maestro BPMN, Claude AI, and Python ML — eliminating manual AP workflows while maintaining full audit traceability.
+An end-to-end AI-powered Procure-to-Pay pipeline that orchestrates invoice processing from intake through payment using UiPath Maestro BPMN, an OpenAI-compatible LLM (Z.ai GLM-5 by default), and Python ML — eliminating manual AP workflows while maintaining full audit traceability.
 
 ## The Problem
 
@@ -23,14 +23,14 @@ Invoice Received → OCR Extract → AI Validate → Anomaly Detect → Route Ap
    Stage 1         Stage 2        Stage 3         Stage 4        Stage 5        Stage 6
 ```
 
-### Stage 1: Invoice Intake (UiPath Studio + Claude Vision)
+### Stage 1: Invoice Intake (UiPath Studio + LLM Vision)
 - Auto-ingests invoices from email, vendor portals, or direct upload
-- Claude Vision API extracts structured data from PDF/image invoices
+- A vision-capable LLM (via the OpenAI-compatible API) extracts structured data from PDF/image invoices
 - Falls back to human-in-the-loop via UiPath Action Center for low-confidence extractions
 
-### Stage 2: AI Validation (Maestro Agent + Claude API)
+### Stage 2: AI Validation (Maestro Agent + LLM API)
 - Cross-checks invoice against Purchase Order (PO), goods receipt, and contract terms
-- Claude LLM performs semantic matching — catches issues rigid rules miss
+- The LLM performs semantic matching — catches issues rigid rules miss
 - Validates line items, quantities, pricing, dates, and vendor identity
 
 ### Stage 3: Anomaly Detection (Python ML + Business Rules)
@@ -66,7 +66,7 @@ Invoice Received → OCR Extract → AI Validate → Anomaly Detect → Route Ap
 │ Intake  │ Validate │  Anomaly   │  Approve  │ Payment  │ Audit │
 │         │          │  Detect    │  Route    │ Execute  │ Trail │
 ├─────────┼──────────┼────────────┼───────────┼──────────┼───────┤
-│ Claude  │ Claude   │ scikit-    │ Orch.     │ Studio   │ Fast- │
+│ LLM     │ LLM      │ scikit-    │ Orch.     │ Studio   │ Fast- │
 │ Vision  │ API      │ learn +    │ Queues +  │ + Bank   │ API   │
 │ + OCR   │ + PO     │ Rules      │ Actions   │ API      │       │
 │         │ Match    │ Engine     │ Center    │          │       │
@@ -98,7 +98,7 @@ This project was built with **Claude Code** (Anthropic's coding agent) for:
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) package manager
 - UiPath Automation Cloud account with Maestro enabled
-- Anthropic API key (for Claude Vision + LLM validation)
+- An OpenAI-compatible LLM API key (Z.ai GLM-5 by default; see `.env.example`)
 - UiPath Studio 2024.10+ (for RPA workflows)
 
 ## Setup
@@ -113,7 +113,7 @@ uv sync
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your UiPath and Anthropic credentials
+# Edit .env with your UiPath and LLM API credentials
 
 # Run tests
 uv run pytest
@@ -134,7 +134,7 @@ uv run uvicorn dashboard.app:app --reload --port 8000
 ```
 p2p-copilot/
 ├── agents/
-│   ├── invoice_intake/       # Stage 1: OCR extraction via Claude Vision
+│   ├── invoice_intake/       # Stage 1: OCR extraction via LLM vision
 │   ├── invoice_validator/    # Stage 2: AI cross-validation against PO/contract
 │   ├── anomaly_detector/     # Stage 3: ML + rules anomaly detection
 │   ├── approval_router/      # Stage 4: Dynamic approval routing
