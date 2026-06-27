@@ -84,6 +84,24 @@ Invoice Received → OCR Extract → AI Validate → Anomaly Detect → Route Ap
 | **AI Center** | Document Understanding for OCR preprocessing |
 | **API Workflows** | Webhook triggers for real-time invoice ingestion |
 
+## Live Deployment (UiPath Labs)
+
+Deployed and verified in the UiPath Labs environment for AgentHack 2026:
+**`https://staging.uipath.com/hackathon26_113/`** (org `hackathon26_113`, tenant `P2P`).
+
+The three pipeline queues are provisioned in the Shared folder, and the Python
+client authenticates to Orchestrator via a registered external (OAuth) application
+with `OR.Queues`, `OR.Jobs`, `OR.Folders`, and `OR.Execution` scopes — verified
+end-to-end (token issuance + queue read-back).
+
+**Orchestrator queues — `P2P_Invoices`, `P2P_Approvals`, `P2P_Payments`:**
+
+![Orchestrator queues](assets/screenshots/orchestrator-queues.png)
+
+**UiPath Labs environment — org `hackathon26_113`, tenant `P2P`:**
+
+![UiPath Labs environment](assets/screenshots/labs-environment.png)
+
 ## Coding Agents
 
 This project was built with **Claude Code** (Anthropic's coding agent) for:
