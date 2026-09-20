@@ -33,8 +33,26 @@ class ApprovalPolicy(BaseModel):
     risk_override: bool = True
 
 
+class ChpConfig(BaseModel):
+    """Consensus Hardening Protocol gate for payment/PO approval decisions.
+
+    Spend must never auto-approve without a named human lock, so
+    ``require_human_lock`` defaults on. Set via env as
+    ``P2P_CHP__REQUIRE_HUMAN_LOCK=0`` (nested delimiter ``__``).
+    """
+
+    enabled: bool = True
+    require_human_lock: bool = True
+    decisions_path: Path = Path("data/chp_decisions.jsonl")
+
+
 class Settings(BaseSettings):
-    model_config = {"env_prefix": "P2P_", "env_file": ".env", "env_nested_delimiter": "__", "extra": "ignore"}
+    model_config = {
+        "env_prefix": "P2P_",
+        "env_file": ".env",
+        "env_nested_delimiter": "__",
+        "extra": "ignore",
+    }
 
     app_name: str = "P2P Copilot"
     debug: bool = False
@@ -43,6 +61,7 @@ class Settings(BaseSettings):
     uipath: UiPathConfig = Field(default_factory=UiPathConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     approval_policy: ApprovalPolicy = Field(default_factory=ApprovalPolicy)
+    chp: ChpConfig = Field(default_factory=ChpConfig)
 
     data_dir: Path = Path("data")
     audit_log_path: Path = Path("data/audit_log.jsonl")

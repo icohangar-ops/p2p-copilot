@@ -23,6 +23,7 @@ dependencies = [
     "pyyaml>=6.0",
     "python-dotenv>=1.0.0",
     "structlog>=24.4.0",
+    "consensus-hardening-protocol==0.1.1",
     "cubiczan-resilience @ git+https://github.com/icohangar-ops/cubiczan-resilience.git#subdirectory=python",
 ]
 
@@ -40,6 +41,13 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+# E501 handled by the formatter; long prompt/HTML template strings and
+# descriptive identifiers are welcome in this codebase (portfolio lint policy).
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# ChpRejection keeps the portfolio CHP gate exception name (erp-control-plane).
+"shared/chp.py" = ["N818"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

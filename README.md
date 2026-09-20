@@ -43,17 +43,50 @@ Invoice Received → OCR Extract → AI Validate → Anomaly Detect → Route Ap
 - Auto-approve: < $5K with low risk → instant payment
 - Risk escalation: anomalies bump approval up 1-2 levels automatically
 - UiPath Action Center delivers approval tasks to the right person
+- Every approval decision is CHP-hardened before release (see below)
 
 ### Stage 5: Payment Execution (UiPath Studio + Banking API)
 - Generates NACHA ACH batch files or wire instructions
 - Posts transactions to ERP general ledger via API
 - Payment confirmation loop with automatic retry
+- Payment initiation refuses spend without a locked CHP approval
 
 ### Stage 6: Audit Trail Dashboard (FastAPI)
 - Real-time dashboard showing every decision in the pipeline
 - Per-invoice timeline: who/what/when/why at each stage
 - AI confidence scores logged for every automated decision
 - Full traceability for SOX/internal audit compliance
+
+## CHP Spend-Approval Gate
+
+Every payment/PO approval decision is gated by the Consensus Hardening Protocol
+(`consensus-hardening-protocol` 0.1.1, Profile A) — the same decision-control pattern proven in
+the erp-control-plane rollout.
+
+**R0 before any approval or spend action.** Before the router approves and before the executor
+pays, a spend-shaped R0 evaluation must answer: is this approval *solvable* from the PO/invoice
+state, *scoped* (never an unbounded auto-approval), and *valid* against the validated invoice?
+Results are capitalized (`Solvable`, `Scoped`, `Valid`, `Worth_it`); any failure is fatal and
+recorded as a refusal in the decision ledger.
+
+**Deterministic scoring with a finance floor.** The foundation assessment scores guardrails (40)
++ bounded decision state (30) + parity evidence (30) against the purchase order — the approval
+must match what was ordered/received, three-way-match style. Spend approvals are
+finance / `capital_allocation` decisions and gate at a floor of **100**: without PO parity, no
+agent — and no configuration — can self-certify the spend.
+
+**Human lock by default.** `P2P_CHP__REQUIRE_HUMAN_LOCK` is **on** unless explicitly disabled:
+spend never auto-approves. Sessions start `EXPLORING`, harden to `PROVISIONAL_LOCK`, and only a
+named approver (`confirmed_by`) locks the decision through CHP third-party validation. The
+payment executor independently re-verifies the lock from the ledger, so a fabricated approval
+cannot move money. The dashboard confirms decisions at `POST /api/decisions/{id}/confirm`.
+
+**Tamper-evident decision ledger.** Approvals *and* refusals append to an append-only JSONL
+(default `data/chp_decisions.jsonl`, configurable via `P2P_CHP__DECISIONS_PATH`). Each record
+seals a CHP payload envelope plus our own SHA-256 body digest; reads revalidate both and expose
+`envelope_valid` / `integrity_valid`. Surface: `GET /api/decisions`, `GET /api/decisions/{id}`.
+
+Set `P2P_CHP__ENABLED=0` to restore the legacy (ungated) routing path — e.g. for local demos.
 
 ## Architecture
 
@@ -161,6 +194,7 @@ p2p-copilot/
 ├── shared/
 │   ├── models.py             # Pydantic data models (Invoice, PO, Anomaly, etc.)
 │   ├── config.py             # Environment-based configuration
+│   ├── chp.py                # CHP spend-approval gate + decision ledger
 │   ├── audit.py              # Audit trail persistence
 │   └── uipath_client.py      # UiPath Orchestrator API client
 ├── dashboard/

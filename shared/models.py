@@ -115,6 +115,8 @@ class ApprovalRequest(BaseModel):
     decided_at: datetime | None = None
     decision: str | None = None
     decision_reason: str | None = None
+    # CHP spend-approval decision id (ledger record) backing this approval.
+    chp_decision_id: str | None = None
 
 
 class PaymentRecord(BaseModel):

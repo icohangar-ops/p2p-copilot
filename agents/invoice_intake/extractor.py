@@ -7,9 +7,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from openai import AsyncOpenAI
-
 from cubiczan_resilience import resilient
+from openai import AsyncOpenAI
 
 from shared.audit import audit
 from shared.config import settings

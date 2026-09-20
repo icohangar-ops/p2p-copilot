@@ -1,4 +1,10 @@
-"""Stage 5: Payment Execution — Generate payment files and trigger ERP/banking integration."""
+"""Stage 5: Payment Execution — Generate payment files and trigger ERP/banking integration.
+
+The payment action is the last CHP gate before money moves: an R0 gate runs
+before initiation, parity re-checks the payment against the approved decision,
+and with ``P2P_CHP__REQUIRE_HUMAN_LOCK`` on (default) the payment requires the
+spend decision to be LOCKED by a named approver in the decision ledger.
+"""
 
 from __future__ import annotations
 
@@ -6,21 +12,22 @@ import csv
 import io
 import uuid
 from datetime import datetime
-from decimal import Decimal
 from typing import Any
 
 from cubiczan_resilience import InMemoryIdempotencyStore
 
 from shared.audit import audit
+from shared.chp import ChpRejection, FoundationAssessment, SpendApprovalGate
 from shared.models import ApprovalRequest, Invoice, PaymentRecord
 
 
 class PaymentExecutor:
-    def __init__(self) -> None:
+    def __init__(self, gate: SpendApprovalGate | None = None) -> None:
         self._payment_log: list[PaymentRecord] = []
         # Idempotency guard: a given invoice must only ever be paid once,
         # even if execute() is retried or replayed for the same invoice_id.
         self._idempotency = InMemoryIdempotencyStore()
+        self.gate = gate or SpendApprovalGate()
 
     def _existing_payment(self, invoice_id: str) -> PaymentRecord | None:
         for record in self._payment_log:
@@ -45,6 +52,11 @@ class PaymentExecutor:
             raise ValueError(
                 f"Cannot pay invoice {invoice.invoice_id}: approval status is '{approval.decision}'"
             )
+
+        gate_context: tuple[FoundationAssessment, dict[str, Any]] | None = None
+        if self.gate.enabled:
+            # Raises ChpRejection (recorded) when the spend is not authorized.
+            gate_context = self._chp_gate_payment(invoice, approval)
 
         payment = PaymentRecord(
             invoice_id=invoice.invoice_id,
@@ -78,8 +90,85 @@ class PaymentExecutor:
             },
         )
 
+        if gate_context is not None:
+            assessment, authorization = gate_context
+            self.gate.record_payment(
+                invoice_id=invoice.invoice_id,
+                amount=invoice.total,
+                payment_reference=payment.payment_reference,
+                assessment=assessment,
+                authorization=authorization,
+            )
+
         self._payment_log.append(payment)
         return payment
+
+    def _chp_gate_payment(
+        self, invoice: Invoice, approval: ApprovalRequest
+    ) -> tuple[FoundationAssessment, dict[str, Any]]:
+        """R0 + human-lock authorization before the spend executes; refusals recorded."""
+        try:
+            self.gate.open_r0(
+                invoice_id=invoice.invoice_id,
+                amount=invoice.total,
+                currency=invoice.currency,
+                approver=approval.assigned_to,
+                validation=approval.validation_result,
+            )
+            # Payment parity: the executed amount must match the approved
+            # decision — a fabricated/mutated approval cannot move money.
+            assessment: FoundationAssessment = self.gate.assess_foundation(
+                amount=invoice.total,
+                expected_amount=approval.amount,
+                parity_basis="approved_decision",
+                parity_reference=approval.chp_decision_id or invoice.invoice_id,
+                guardrail_evidence=(
+                    "approval decided, amount matches the approved decision,"
+                    " idempotency claimed before initiation"
+                ),
+                assigned_to=approval.assigned_to,
+            )
+            self.gate.check_foundation(assessment)
+            authorization = self.gate.authorization_for_payment(approval)
+        except ChpRejection as rejection:
+            self.gate.record_refusal(
+                invoice_id=invoice.invoice_id,
+                stage="payment_execution",
+                reason=rejection.reason,
+                evaluation=rejection.evaluation,
+            )
+            audit.log(
+                stage="payment_execution",
+                invoice_id=invoice.invoice_id,
+                action="chp_refused",
+                actor="chp_gate",
+                details={"reason": rejection.reason},
+                decision="refused",
+            )
+            raise
+
+        if authorization is None:
+            reason = (
+                f"CHP human lock required: payment refused until a named approver locks"
+                f" decision {approval.chp_decision_id or '(none recorded for this approval)'}"
+            )
+            self.gate.record_refusal(
+                invoice_id=invoice.invoice_id,
+                stage="payment_execution",
+                reason=reason,
+                assessment=assessment,
+            )
+            audit.log(
+                stage="payment_execution",
+                invoice_id=invoice.invoice_id,
+                action="chp_refused",
+                actor="chp_gate",
+                details={"reason": reason},
+                decision="refused",
+            )
+            raise ChpRejection(reason)
+
+        return assessment, authorization
 
     def generate_ach_file(self, payments: list[PaymentRecord]) -> str:
         """Generate NACHA-format ACH batch file content."""

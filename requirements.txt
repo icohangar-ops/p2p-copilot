@@ -1,0 +1,16 @@
+# Main dependencies (mirror of pyproject.toml [project].dependencies)
+openai>=1.60.0
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+fastapi>=0.115.0
+uvicorn>=0.34.0
+httpx>=0.28.0
+pandas>=2.2.0
+scikit-learn>=1.6.0
+python-multipart>=0.0.18
+jinja2>=3.1.0
+pyyaml>=6.0
+python-dotenv>=1.0.0
+structlog>=24.4.0
+consensus-hardening-protocol==0.1.1
+cubiczan-resilience @ git+https://github.com/icohangar-ops/cubiczan-resilience.git#subdirectory=python

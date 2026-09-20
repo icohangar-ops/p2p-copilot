@@ -12,15 +12,10 @@ from agents.approval_router.router import ApprovalRouter
 from agents.invoice_intake.extractor import InvoiceExtractor
 from agents.invoice_validator.validator import InvoiceValidator
 from agents.payment_executor.executor import PaymentExecutor
-from shared.audit import audit
 from shared.models import (
-    Anomaly,
-    ApprovalRequest,
     Invoice,
     InvoiceStatus,
-    PaymentRecord,
     PurchaseOrder,
-    ValidationResult,
 )
 
 logger = structlog.get_logger(__name__)
@@ -82,7 +77,9 @@ class P2PPipeline:
 
         # Stage 4: Approval Routing
         logger.info("pipeline_stage", stage="approval_routing", invoice_id=invoice.invoice_id)
-        approval = await self.approval_router.route(invoice, validation, anomalies)
+        approval = await self.approval_router.route(
+            invoice, validation, anomalies, purchase_order=purchase_order
+        )
         result["approval"] = approval
         result["stages"]["approval"] = {
             "status": "complete",

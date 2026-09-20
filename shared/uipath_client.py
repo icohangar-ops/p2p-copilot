@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-
 from cubiczan_resilience import resilient
 
 from shared.config import settings

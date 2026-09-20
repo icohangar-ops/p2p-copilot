@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query, UploadFile, File
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from shared.audit import audit
+from shared.chp import ChpRejection, SpendApprovalGate
 from shared.config import settings
-from shared.models import AuditEntry
 
 app = FastAPI(
     title="P2P Copilot Dashboard",
@@ -172,3 +170,42 @@ async def get_invoice_timeline(invoice_id: str) -> list[dict]:
     if not entries:
         raise HTTPException(status_code=404, detail=f"No audit entries for {invoice_id}")
     return [e.model_dump(mode="json") for e in entries]
+
+
+# ------------------------------------------------------------------- CHP decisions
+
+
+@app.get("/api/decisions")
+async def get_chp_decisions(limit: int = Query(default=100, ge=1, le=500)) -> list[dict]:
+    """CHP spend decisions, newest first, with integrity verdicts."""
+    return SpendApprovalGate(settings.chp).records.list()[:limit]
+
+
+@app.get("/api/decisions/{decision_id}")
+async def get_chp_decision(decision_id: str) -> dict:
+    record = SpendApprovalGate(settings.chp).records.get(decision_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"No CHP decision {decision_id}")
+    return record
+
+
+class ApprovalConfirmation(BaseModel):
+    confirmed_by: str
+
+
+@app.post("/api/decisions/{decision_id}/confirm")
+async def confirm_chp_decision(decision_id: str, confirmation: ApprovalConfirmation) -> dict:
+    """Named human confirms a PROVISIONAL_LOCK spend decision through CHP."""
+    gate = SpendApprovalGate(settings.chp)
+    try:
+        record = gate.reload_and_lock(decision_id, confirmation.confirmed_by)
+    except ChpRejection as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    audit.log(
+        invoice_id=record.get("invoice_id", "unknown"),
+        stage="approval_confirmation",
+        action="chp_decision_locked",
+        actor=confirmation.confirmed_by,
+        details={"decision_id": decision_id, "confirmed_by": confirmation.confirmed_by},
+    )
+    return record

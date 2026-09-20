@@ -97,23 +97,20 @@ class AnomalyDetector:
         anomalies: list[Anomaly] = []
         threshold = Decimal(str(self.rules.get("overcharge_threshold_pct", 10)))
 
-        if po:
-            if invoice.total > po.total_amount:
-                overage_pct = (
-                    (invoice.total - po.total_amount) / po.total_amount * 100
+        if po and invoice.total > po.total_amount:
+            overage_pct = (invoice.total - po.total_amount) / po.total_amount * 100
+            risk = RiskLevel.CRITICAL if overage_pct > threshold else RiskLevel.HIGH
+            anomalies.append(
+                Anomaly(
+                    invoice_id=invoice.invoice_id,
+                    anomaly_type=AnomalyType.OVERCHARGE,
+                    risk_level=risk,
+                    description=f"Invoice ${invoice.total} exceeds PO ${po.total_amount} by {overage_pct:.1f}%",
+                    expected_value=str(po.total_amount),
+                    actual_value=str(invoice.total),
+                    confidence=0.95,
                 )
-                risk = RiskLevel.CRITICAL if overage_pct > threshold else RiskLevel.HIGH
-                anomalies.append(
-                    Anomaly(
-                        invoice_id=invoice.invoice_id,
-                        anomaly_type=AnomalyType.OVERCHARGE,
-                        risk_level=risk,
-                        description=f"Invoice ${invoice.total} exceeds PO ${po.total_amount} by {overage_pct:.1f}%",
-                        expected_value=str(po.total_amount),
-                        actual_value=str(invoice.total),
-                        confidence=0.95,
-                    )
-                )
+            )
 
         if not invoice.po_number:
             anomalies.append(
